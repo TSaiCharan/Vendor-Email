@@ -85,7 +85,7 @@ Looking forward to hearing from you.
 
 `
 
-const DEFAULT_RESUME_PATH = "C:/Users/sai60/Desktop/origintek/Resume/Versions/v6/SaiCharan_resume.pdf"
+const DEFAULT_RESUME_PATH = "../data/Resumes/Sai Charan Teratipally.docx"
 
 export function CreateJobDialog() {
   const [open, setOpen] = useState(false)
