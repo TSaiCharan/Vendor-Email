@@ -355,7 +355,7 @@ export function CreateJobDialog() {
             <Input
               id="resume-path"
               type="text"
-              placeholder="C:/Users/sai60/Desktop/origintek/Resume/Versions/v5/SaiCharan_resume.pdf"
+              placeholder="../data/Resumes/Sai Charan Teratipally.docx"
               value={resumePath}
               onChange={(e) => setResumePath(e.target.value)}
               required
