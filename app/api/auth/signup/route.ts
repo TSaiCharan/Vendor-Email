@@ -1,20 +1,89 @@
-import { NextResponse, type NextRequest } from 'next/server'
-import jwt from 'jsonwebtoken'
+// import { NextResponse, type NextRequest } from 'next/server'
+// import jwt from 'jsonwebtoken'
 
-/**
- * Mock user database - Replace this with your actual user database/backend
- */
-let MOCK_USERS = [
-  {
-    id: 'user_1',
-    email: 'test@example.com',
-    password: 'password123',
-  },
-]
+// /**
+//  * Mock user database - Replace this with your actual user database/backend
+//  */
+// let MOCK_USERS = [
+//   {
+//     id: 'user_1',
+//     email: 'test@example.com',
+//     password: 'password123',
+//   },
+// ]
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+// const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
-export async function POST(req: NextRequest) {
+// export async function POST(req: NextRequest) {
+//   try {
+//     const { email, password } = await req.json()
+
+//     if (!email || !password) {
+//       return NextResponse.json(
+//         { error: 'Email and password are required' },
+//         { status: 400 }
+//       )
+//     }
+
+//     if (password.length < 6) {
+//       return NextResponse.json(
+//         { error: 'Password must be at least 6 characters' },
+//         { status: 400 }
+//       )
+//     }
+
+//     // Check if user already exists
+//     const existingUser = MOCK_USERS.find(u => u.email === email)
+//     if (existingUser) {
+//       return NextResponse.json(
+//         { error: 'User already exists' },
+//         { status: 400 }
+//       )
+//     }
+
+//     // Create new user
+//     const newUser = {
+//       id: `user_${Date.now()}`,
+//       email,
+//       password, // In production, hash this with bcrypt
+//     }
+
+//     MOCK_USERS.push(newUser)
+
+//     // Generate JWT token
+//     const token = jwt.sign(
+//       { id: newUser.id, email: newUser.email },
+//       JWT_SECRET,
+//       { expiresIn: '7d' }
+//     )
+
+//     return NextResponse.json({
+//       success: true,
+//       token,
+//       id: newUser.id,
+//       email: newUser.email,
+//     })
+//   } catch (error) {
+//     console.error('Signup error:', error)
+//     return NextResponse.json(
+//       { error: 'Internal server error' },
+//       { status: 500 }
+//     )
+//   }
+// }
+
+
+import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+export const runtime = 'nodejs' // ensure Node runtime (safe for server secrets)
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY! // ONLY used on server
+)
+
+export async function POST(req: Request) {
   try {
     const { email, password } = await req.json()
 
@@ -32,39 +101,23 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Check if user already exists
-    const existingUser = MOCK_USERS.find(u => u.email === email)
-    if (existingUser) {
-      return NextResponse.json(
-        { error: 'User already exists' },
-        { status: 400 }
-      )
-    }
-
-    // Create new user
-    const newUser = {
-      id: `user_${Date.now()}`,
+    // Create user in Supabase Auth
+    const { data, error } = await supabase.auth.admin.createUser({
       email,
-      password, // In production, hash this with bcrypt
+      password,
+      email_confirm: true, // auto confirm email (optional)
+    })
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
     }
-
-    MOCK_USERS.push(newUser)
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: newUser.id, email: newUser.email },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    )
 
     return NextResponse.json({
       success: true,
-      token,
-      id: newUser.id,
-      email: newUser.email,
+      user: data.user,
     })
-  } catch (error) {
-    console.error('Signup error:', error)
+  } catch (err) {
+    console.error('Signup error:', err)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
