@@ -3,7 +3,7 @@ import { updateJob, getJobsByStatus } from "@/lib/json-storage-fs"
 import { existsSync } from "fs"
 import path from "path"
 
-export async function processNextJob() {
+export async function processNextJob(openai_api_key?: string, gmail_user?: string, gmail_app_password?: string) {
   // Check if there's already a job processing
   const processingJobs = getJobsByStatus("processing")
 
@@ -90,6 +90,7 @@ export async function processNextJob() {
         jobDescription: job.job_description,
         aiPrompt: job.ai_prompt,
         resumeContent,
+        openai_api_key,
       }),
     })
 
@@ -108,6 +109,8 @@ export async function processNextJob() {
         subject: aiResult.subject,
         body: aiResult.body,
         attachmentPath: job.resume_path,
+        gmail_user,
+        gmail_app_password,
       }),
     })
 

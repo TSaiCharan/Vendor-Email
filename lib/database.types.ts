@@ -13,3 +13,11 @@ export interface UserApiKeys {
   created_at: string
   updated_at: string
 }
+
+export interface UserResume {
+  id: string
+  user_id: string
+  name: string
+  file_url: string
+  created_at: string
+}

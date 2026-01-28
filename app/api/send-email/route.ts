@@ -2,13 +2,15 @@ import { sendEmail } from "@/lib/gmail"
 
 export async function POST(req: Request) {
   try {
-    const { to, subject, body, attachmentPath } = await req.json()
+    const { to, subject, body, attachmentPath, gmail_user, gmail_app_password } = await req.json()
 
     const result = await sendEmail({
       to,
       subject,
       body,
       attachmentPath,
+      gmail_user,
+      gmail_app_password,
     })
 
     return Response.json({

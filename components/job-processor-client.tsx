@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase"
 
 export function JobProcessorClient() {
   const router = useRouter()
@@ -11,8 +12,35 @@ export function JobProcessorClient() {
     // Process jobs every 10 seconds
     const processJobs = async () => {
       try {
+        // Get current user
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
+        if (!user) {
+          console.log("[v0] No user session, skipping job processing")
+          return
+        }
+
+        // Fetch user's API keys from Supabase
+        const { data: apiKeys, error } = await supabase
+          .from("user_api_keys")
+          .select("*")
+          .eq("user_id", user.id)
+          .single()
+
+        if (error) {
+          console.warn("[v0] Could not fetch API keys:", error.message)
+        }
+
         const response = await fetch("/api/process-jobs", {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            openai_api_key: apiKeys?.openai_api_key,
+            gmail_user: apiKeys?.gmail_user,
+            gmail_app_password: apiKeys?.gmail_app_password,
+          }),
         })
         const result = await response.json()
 

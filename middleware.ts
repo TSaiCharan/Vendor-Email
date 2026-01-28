@@ -1,36 +1,50 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 
 export async function middleware(request: NextRequest) {
-  const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req: request, res })
+  let response = NextResponse.next()
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name) {
+          return request.cookies.get(name)?.value
+        },
+        set(name, value, options) {
+          response.cookies.set({ name, value, ...options })
+        },
+        remove(name, options) {
+          response.cookies.set({ name, value: '', ...options })
+        },
+      },
+    }
+  )
 
-  // Redirect to login if accessing protected routes
-  if (
-    !session &&
-    (request.nextUrl.pathname.startsWith('/profile') ||
-      request.nextUrl.pathname.startsWith('/dashboard'))
-  ) {
-    return NextResponse.redirect(new URL('/auth/login', request.url))
+  const { data: { session } } = await supabase.auth.getSession()
+
+  const isAuthPage =
+    request.nextUrl.pathname.startsWith('/login') ||
+    request.nextUrl.pathname.startsWith('/signup')
+
+  const isProtectedRoute =
+    request.nextUrl.pathname.startsWith('/dashboard') ||
+    request.nextUrl.pathname.startsWith('/profile')
+
+  // Not logged in → block protected pages
+  if (!session && isProtectedRoute) {
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Redirect to profile if already logged in and accessing auth pages
-  if (
-    session &&
-    (request.nextUrl.pathname.startsWith('/auth/login') ||
-      request.nextUrl.pathname.startsWith('/auth/signup'))
-  ) {
-    return NextResponse.redirect(new URL('/profile', request.url))
+  // Logged in → block auth pages
+  if (session && isAuthPage) {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
-  return res
+  return response
 }
 
 export const config = {
-  matcher: ['/profile/:path*', '/dashboard/:path*', '/auth/:path*'],
+  matcher: ['/dashboard/:path*', '/profile/:path*', '/login/:path*', '/signup/:path*'],
 }

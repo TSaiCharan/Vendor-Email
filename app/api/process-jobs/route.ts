@@ -4,7 +4,10 @@ export const dynamic = "force-dynamic"
 
 export async function POST(req: Request) {
   try {
-    const result = await processNextJob()
+    const body = await req.json().catch(() => ({}))
+    const { openai_api_key, gmail_user, gmail_app_password } = body
+
+    const result = await processNextJob(openai_api_key, gmail_user, gmail_app_password)
     return Response.json(result)
   } catch (error) {
     console.error("[v0] Error in process-jobs route:", error)

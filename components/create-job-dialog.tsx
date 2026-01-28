@@ -17,6 +17,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase"
+import { UserResume } from "@/lib/database.types"
 
 // --- Changed: make prompt generic and remove hard-coded personal signature ---
 // Provide a minimal generic prompt that hosts can override via props.
@@ -87,11 +89,14 @@ Looking forward to hearing from you.
 
 const DEFAULT_RESUME_PATH = "C:/Users/sai60/Desktop/origintek/Resume/Versions/v6/SaiCharan_resume.pdf"
 
-export function CreateJobDialog() {
+export function CreateJobDialog({ onJobCreated }: { onJobCreated?: () => void }) {
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [recruiterEmail, setRecruiterEmail] = useState("")
   const [jobDescription, setJobDescription] = useState("")
+  const [selectedResume, setSelectedResume] = useState<string>("")
+  const [userResumes, setUserResumes] = useState<UserResume[]>([])
+  const [resumesLoading, setResumesLoading] = useState(false)
   // initialize from sessionStorage if set (session-level variables)
   const [aiPrompt, setAiPrompt] = useState<string>(() => {
     try {
@@ -100,15 +105,6 @@ export function CreateJobDialog() {
         : GENERIC_AI_PROMPT
     } catch {
       return GENERIC_AI_PROMPT
-    }
-  })
-  const [resumePath, setResumePath] = useState<string>(() => {
-    try {
-      return typeof window !== "undefined"
-        ? sessionStorage.getItem("DEFAULT_RESUME_PATH") ?? DEFAULT_RESUME_PATH
-        : DEFAULT_RESUME_PATH
-    } catch {
-      return DEFAULT_RESUME_PATH
     }
   })
   const [error, setError] = useState<string | null>(null)
@@ -146,6 +142,38 @@ export function CreateJobDialog() {
   // load available variable keys from sessionStorage when dialog opens
   useEffect(() => {
     if (!open) return
+    
+    // Fetch user's resumes
+    const fetchResumes = async () => {
+      try {
+        setResumesLoading(true)
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
+        if (user) {
+          const { data: resumes } = await supabase
+            .from("user_resumes")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+
+          if (resumes) {
+            setUserResumes(resumes)
+            if (resumes.length > 0 && !selectedResume) {
+              setSelectedResume(resumes[0].id)
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching resumes:", error)
+      } finally {
+        setResumesLoading(false)
+      }
+    }
+
+    fetchResumes()
+
     try {
       const keys = new Set<string>()
       // built-in names / user-renamed keys
@@ -199,6 +227,15 @@ export function CreateJobDialog() {
     setIsLoading(true)
     setError(null)
 
+    if (!selectedResume) {
+      setError("Please select a resume")
+      setIsLoading(false)
+      return
+    }
+
+    const selectedResumeData = userResumes.find(r => r.id === selectedResume)
+    const resumePath = selectedResumeData?.file_url || ""
+
     try {
       const response = await fetch("/api/jobs/create", {
         method: "POST",
@@ -210,6 +247,7 @@ export function CreateJobDialog() {
           resume_path: resumePath,
         }),
       })
+      console.log('submitting new job', response)
 
       const result = await response.json()
 
@@ -221,8 +259,40 @@ export function CreateJobDialog() {
       setRecruiterEmail("")
       setJobDescription("")
       setAiPrompt(GENERIC_AI_PROMPT)
-      setResumePath(DEFAULT_RESUME_PATH)
+      setSelectedResume("")
       setOpen(false)
+
+      // Call the callback to refresh jobs
+      if (onJobCreated) {
+        onJobCreated()
+      }
+
+      // Trigger job processing immediately with user's API keys
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
+        if (user) {
+          const { data: apiKeys } = await supabase
+            .from("user_api_keys")
+            .select("*")
+            .eq("user_id", user.id)
+            .single()
+
+          await fetch("/api/process-jobs", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              openai_api_key: apiKeys?.openai_api_key,
+              gmail_user: apiKeys?.gmail_user,
+              gmail_app_password: apiKeys?.gmail_app_password,
+            }),
+          })
+        }
+      } catch (error) {
+        console.error("Error triggering job processor:", error)
+      }
 
       // Refresh the page to show the new job
       router.refresh()
@@ -324,43 +394,37 @@ export function CreateJobDialog() {
             />
           </div>
 
-          {/* Resume path source selector */}
+          {/* Resume selector */}
           <div className="space-y-2">
-            <Label htmlFor="resume-source">Resume path source</Label>
-            <div className="flex gap-2 items-center">
+            <Label htmlFor="resume-select">Select Resume *</Label>
+            {resumesLoading ? (
+              <div className="p-2 text-sm text-gray-600">Loading resumes...</div>
+            ) : userResumes.length === 0 ? (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  No resumes found. Please{" "}
+                  <a href="/resume" target="_blank" rel="noopener noreferrer" className="underline font-semibold">
+                    upload a resume
+                  </a>
+                  {" "}first.
+                </p>
+              </div>
+            ) : (
               <select
-                id="resume-source"
-                value={resumeSource.type === "manual" ? "manual" : resumeSource.key}
-                onChange={(e) => {
-                  const val = e.target.value
-                  if (val === "manual") {
-                    setResumeSource({ type: "manual" })
-                  } else {
-                    setResumeSource({ type: "session", key: val })
-                    const v = readSessionVar(val)
-                    setResumePath(v)
-                  }
-                }}
-                className="border rounded px-2 py-1 bg-black text-white"
+                id="resume-select"
+                value={selectedResume}
+                onChange={(e) => setSelectedResume(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
               >
-                <option value="manual">Manual (edit below)</option>
-                {availableKeys.map((k) => (
-                  <option key={k} value={k}>
-                    {k}
+                <option value="">Select a resume...</option>
+                {userResumes.map((resume) => (
+                  <option key={resume.id} value={resume.id}>
+                    {resume.name}
                   </option>
                 ))}
               </select>
-            </div>
-            <Label htmlFor="resume-path">Resume File Path *</Label>
-            <Input
-              id="resume-path"
-              type="text"
-              placeholder="../data/Resumes/Sai Charan Teratipally.docx"
-              value={resumePath}
-              onChange={(e) => setResumePath(e.target.value)}
-              required
-            />
-            <p className="text-xs text-muted-foreground">Enter the local file path to your resume</p>
+            )}
           </div>
 
           {error && <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</div>}

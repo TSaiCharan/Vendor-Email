@@ -5,8 +5,8 @@ const emailSchema = z.object({
   body: z.string().describe("A personalized, professional email body"),
 })
 
-async function callOpenAI(prompt: string) {
-  const key = process.env.OPENAI_API_KEY
+async function callOpenAI(prompt: string, apiKey?: string) {
+  const key = apiKey || process.env.OPENAI_API_KEY
   if (!key) {
     throw new Error('OPENAI_API_KEY is not set in the environment')
   }
@@ -41,7 +41,7 @@ async function callOpenAI(prompt: string) {
 
 export async function POST(req: Request) {
   try {
-    const { jobDescription, aiPrompt, resumeContent } = await req.json()
+    const { jobDescription, aiPrompt, resumeContent, openai_api_key } = await req.json()
 
     // Build a clear user prompt asking for JSON output
     const prompt = `${aiPrompt}
@@ -54,7 +54,7 @@ ${resumeContent}
 
 Please respond ONLY with a JSON object with two fields: "subject" and "body". The "subject" should be a concise professional subject line. The "body" should be a personalized professional email body.`
 
-    const raw = await callOpenAI(prompt)
+    const raw = await callOpenAI(prompt, openai_api_key)
 
     // Try to parse JSON from the model output. Models sometimes include surrounding text,
     // so extract the first JSON object block if direct parse fails.

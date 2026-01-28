@@ -5,22 +5,32 @@ export interface EmailOptions {
   subject: string
   body: string
   attachmentPath?: string
+  gmail_user?: string
+  gmail_app_password?: string
 }
 
-export async function sendEmail({ to, subject, body, attachmentPath }: EmailOptions) {
+export async function sendEmail({ to, subject, body, attachmentPath, gmail_user, gmail_app_password }: EmailOptions) {
   try {
+    // Use provided credentials or fall back to environment variables
+    const user = gmail_user || process.env.GMAIL_USER
+    const pass = gmail_app_password || process.env.GMAIL_APP_PASSWORD
+
+    if (!user || !pass) {
+      throw new Error("Gmail credentials are not configured")
+    }
+
     // Create transporter using Gmail SMTP
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
+        user,
+        pass,
       },
     })
 
     // Prepare email options
     const mailOptions: any = {
-      from: process.env.GMAIL_USER,
+      from: user,
       to,
       subject,
       text: body,
