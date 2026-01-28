@@ -32,6 +32,7 @@
 //   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 // }
 
+export const runtime = 'nodejs'
 
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
