@@ -6,6 +6,8 @@ function normalizeFile(dataPath) {
 	const raw = fs.readFileSync(dataPath, 'utf8');
 	const records = JSON.parse(raw);
 
+	console.log(dataPath)
+
 	for (const rec of records) {
 		const normalized = normalizeAiEmail({ subject: rec.email_subject, body: rec.email_body });
 		if (normalized.subject) rec.email_subject = normalized.subject;
