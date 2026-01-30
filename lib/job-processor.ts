@@ -1,11 +1,11 @@
 import { readFileSync } from "fs"
-import { updateJob, getJobsByStatus } from "@/lib/json-storage-fs"
+import { updateJob, getJobsByStatus } from "@/lib/jobs-bucket-storage"
 import { existsSync } from "fs"
 import path from "path"
 
 export async function processNextJob(openai_api_key?: string, gmail_user?: string, gmail_app_password?: string) {
   // Check if there's already a job processing
-  const processingJobs = getJobsByStatus("processing")
+  const processingJobs = await getJobsByStatus("processing")
 
   if (processingJobs.length > 0) {
     console.log("[v0] A job is already processing, skipping...")
@@ -13,7 +13,7 @@ export async function processNextJob(openai_api_key?: string, gmail_user?: strin
   }
 
   // Get the next queued job
-  const queuedJobs = getJobsByStatus("queued")
+  const queuedJobs = await getJobsByStatus("queued")
 
   if (queuedJobs.length === 0) {
     console.log("[v0] No queued jobs to process")
@@ -25,7 +25,7 @@ export async function processNextJob(openai_api_key?: string, gmail_user?: strin
   console.log("[v0] Processing job:", job.id)
 
   // Update job status to processing
-  updateJob(job.id, { status: "processing" })
+  await updateJob(job.id, { status: "processing" })
 
   try {
     // Clean and validate resume file path
@@ -121,7 +121,7 @@ export async function processNextJob(openai_api_key?: string, gmail_user?: strin
     }
 
     // Update job status to success
-    updateJob(job.id, {
+    await updateJob(job.id, {
       status: "success",
       email_subject: aiResult.subject,
       email_body: aiResult.body,
@@ -133,7 +133,7 @@ export async function processNextJob(openai_api_key?: string, gmail_user?: strin
     console.error("[v0] Error processing job:", error)
 
     // Update job status to failure
-    updateJob(job.id, {
+    await updateJob(job.id, {
       status: "failure",
       error_message: error instanceof Error ? error.message : "Unknown error",
     })

@@ -1,8 +1,8 @@
-import { getTodayJobs } from '@/lib/json-storage-fs'
+import { getTodayJobs } from '@/lib/jobs-bucket-storage'
 
 export async function GET(_req: Request) {
   try {
-    const jobs = getTodayJobs()
+    const jobs = await getTodayJobs()
     return Response.json({ success: true, jobs })
   } catch (error) {
     console.error('[v0] Error fetching today jobs:', error)

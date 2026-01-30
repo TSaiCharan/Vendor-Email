@@ -1,4 +1,4 @@
-import { createJob } from "@/lib/json-storage-fs"
+import { createJob } from "@/lib/jobs-bucket-storage"
 
 export async function POST(req: Request) {
   try {
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const newJob = createJob({
+    const newJob = await createJob({
       recruiter_email,
       job_description,
       ai_prompt,
