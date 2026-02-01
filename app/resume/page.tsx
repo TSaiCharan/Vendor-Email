@@ -164,25 +164,25 @@ export default function ResumePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-600 to-blue-800">
-        <div className="text-white text-xl">Loading...</div>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-950 to-slate-900">
+        <div className="text-slate-100 text-xl">Loading...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 to-slate-900 py-12 px-4">
       <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <div className="bg-slate-900 rounded-2xl shadow-2xl overflow-hidden border border-slate-800">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-8 py-6">
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-700 px-8 py-6">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-white">Manage Resumes</h1>
-                <p className="text-blue-100 mt-1">{user?.email}</p>
+                <p className="text-indigo-100 mt-1">{user?.email}</p>
               </div>
               <Link href="/home">
-                <Button variant="ghost" className="text-white hover:bg-blue-700">
+                <Button variant="ghost" className="text-white hover:bg-indigo-700">
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back
                 </Button>
@@ -196,15 +196,15 @@ export default function ResumePage() {
               <div
                 className={`mb-6 p-4 rounded-lg border ${
                   messageType === 'success'
-                    ? 'bg-green-50 border-green-200'
-                    : 'bg-red-50 border-red-200'
+                    ? 'bg-green-900/20 border-green-800'
+                    : 'bg-red-900/20 border-red-800'
                 }`}
               >
                 <p
                   className={`text-sm font-medium ${
                     messageType === 'success'
-                      ? 'text-green-600'
-                      : 'text-red-600'
+                      ? 'text-green-400'
+                      : 'text-red-400'
                   }`}
                 >
                   {message}
@@ -213,9 +213,9 @@ export default function ResumePage() {
             )}
 
             {/* Upload Form */}
-            <div className="mb-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Upload New Resume</h2>
-              <p className="text-sm text-gray-600 mb-4">
+            <div className="mb-8 p-6 bg-slate-800 rounded-lg border border-slate-700">
+              <h2 className="text-xl font-bold text-slate-100 mb-4">Upload New Resume</h2>
+              <p className="text-sm text-slate-400 mb-4">
                 You can upload up to 3 resumes. ({resumes.length}/3)
               </p>
 
@@ -261,28 +261,28 @@ export default function ResumePage() {
 
             {/* Resumes List */}
             <div>
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Your Resumes</h2>
+              <h2 className="text-xl font-bold text-slate-100 mb-4">Your Resumes</h2>
 
               {resumes.length === 0 ? (
-                <div className="p-6 text-center bg-gray-50 rounded-lg border border-gray-200">
-                  <p className="text-gray-600">No resumes uploaded yet. Upload your first resume above!</p>
+                <div className="p-6 text-center bg-slate-800 rounded-lg border border-slate-700">
+                  <p className="text-slate-400">No resumes uploaded yet. Upload your first resume above!</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {resumes.map((resume) => (
                     <div
                       key={resume.id}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition"
+                      className="flex items-center justify-between p-4 bg-slate-800 rounded-lg border border-slate-700 hover:bg-slate-700 transition"
                     >
                       <div>
-                        <p className="font-semibold text-gray-800">{resume.name}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="font-semibold text-slate-100">{resume.name}</p>
+                        <p className="text-xs text-slate-400">
                           Uploaded {new Date(resume.created_at).toLocaleDateString()}
                         </p>
                       </div>
                       <button
                         onClick={() => handleDelete(resume.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                        className="p-2 text-red-400 hover:bg-red-900/30 rounded-lg transition"
                         title="Delete resume"
                       >
                         <Trash2 className="h-5 w-5" />

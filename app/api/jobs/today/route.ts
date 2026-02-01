@@ -1,4 +1,4 @@
-import { getTodayJobs } from '@/lib/jobs-bucket-storage'
+import { getTodayJobs } from '@/lib/jobs-bucket-storage-server'
 
 export async function GET(_req: Request) {
   try {

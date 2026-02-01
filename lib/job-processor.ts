@@ -1,5 +1,5 @@
 import { readFileSync } from "fs"
-import { updateJob, getJobsByStatus } from "@/lib/jobs-bucket-storage"
+import { updateJob, getJobsByStatus } from "@/lib/jobs-bucket-storage-server"
 import { existsSync } from "fs"
 import path from "path"
 
@@ -28,58 +28,100 @@ export async function processNextJob(openai_api_key?: string, gmail_user?: strin
   await updateJob(job.id, { status: "processing" })
 
   try {
-    // Clean and validate resume file path
-    let cleanedPath = job.resume_path
-    if (cleanedPath.startsWith('file://')) {
-      cleanedPath = cleanedPath.replace('file:///', '')
-    }
-    
-    // Check if file exists
-    if (!existsSync(cleanedPath)) {
-      throw new Error(`Resume file not found: ${cleanedPath}`)
-    }
-    
-    // Check file extension
-    const fileExt = path.extname(cleanedPath).toLowerCase()
-    
+    // Handle resume file - it could be a URL or local path
     let resumeContent: string
-    try {
-      if (fileExt === '.pdf') {
-        // Read the PDF buffer first
-        const pdfBuffer = readFileSync(cleanedPath)
-
-        // Attempt optional PDF extraction in a safe way.
-        // We avoid using eval('require') or assuming pdf-parse is present because
-        // that can break in Next.js app-route / ESM runtimes or when Node is older.
-        let extractedText = ""
-        try {
-          // Try dynamic import; if it fails we'll fall back.
-          const mod: any = await import('pdf-parse').catch(() => null)
-          const pdfFn = mod && (mod.default ?? mod)
-          if (pdfFn && typeof pdfFn === 'function') {
-            const pdfData = await pdfFn(pdfBuffer as any)
-            extractedText = (pdfData && pdfData.text) || ""
-          } else {
-            console.warn('[v0] pdf-parse is not available or not callable in this runtime; skipping extraction')
+    
+    if (job.resume_path.startsWith('http://') || job.resume_path.startsWith('https://')) {
+      // It's a URL (from Supabase storage or other cloud storage)
+      console.log('[v0] Downloading resume from URL:', job.resume_path)
+      try {
+        const response = await fetch(job.resume_path)
+        if (!response.ok) {
+          throw new Error(`Failed to download resume: ${response.status}`)
+        }
+        
+        const contentType = response.headers.get('content-type') || ''
+        
+        if (contentType.includes('pdf') || job.resume_path.endsWith('.pdf')) {
+          // Handle PDF from URL
+          const buffer = await response.arrayBuffer()
+          const pdfBuffer = Buffer.from(buffer)
+          
+          let extractedText = ""
+          try {
+            const mod: any = await import('pdf-parse').catch(() => null)
+            const pdfFn = mod && (mod.default ?? mod)
+            if (pdfFn && typeof pdfFn === 'function') {
+              const pdfData = await pdfFn(pdfBuffer as any)
+              extractedText = (pdfData && pdfData.text) || ""
+            }
+          } catch (e) {
+            console.warn('[v0] PDF extraction failed:', e)
           }
-        } catch (e) {
-          // PDF extraction failed (runtime mismatch or missing DOM APIs)
-          console.warn('[v0] PDF extraction attempt failed:', e)
-        }
 
-        if (extractedText && extractedText.trim()) {
-          resumeContent = extractedText
+          if (extractedText && extractedText.trim()) {
+            resumeContent = extractedText
+          } else {
+            resumeContent = `PDF resume — text extraction not available. Please provide a text version of the resume (e.g. .txt).`
+            console.warn('[v0] Falling back to placeholder resume content for job:', job.id)
+          }
         } else {
-          // Fallback: do not crash the job. Provide a clear placeholder string the AI can use.
-          resumeContent = `PDF resume at ${cleanedPath} — text extraction not available in this runtime. Please provide a text version of the resume (e.g. .txt) or upgrade Node to >=20.16.0 and install 'pdf-parse' to enable extraction.`
-          console.warn('[v0] Falling back to placeholder resume content for job:', job.id)
+          // Text-based resume from URL
+          resumeContent = await response.text()
         }
-      } else {
-        // For text-based files (.txt, .md, etc.)
-        resumeContent = readFileSync(cleanedPath, "utf-8")
+      } catch (urlError) {
+        throw new Error(`Failed to download resume from URL: ${urlError}`)
       }
-    } catch (fileError) {
-      throw new Error(`Failed to read resume file: ${cleanedPath}. Error: ${fileError}`)
+    } else {
+      // Local file path (for local development only)
+      console.log('[v0] Reading resume from local path:', job.resume_path)
+      
+      // Clean and validate resume file path
+      let cleanedPath = job.resume_path
+      if (cleanedPath.startsWith('file://')) {
+        cleanedPath = cleanedPath.replace('file:///', '')
+      }
+      
+      // Check if file exists
+      if (!existsSync(cleanedPath)) {
+        throw new Error(`Resume file not found: ${cleanedPath}. Please use uploaded resume URLs instead of local file paths for production compatibility.`)
+      }
+      
+      // Check file extension
+      const fileExt = path.extname(cleanedPath).toLowerCase()
+      
+      try {
+        if (fileExt === '.pdf') {
+          // Read the PDF buffer first
+          const pdfBuffer = readFileSync(cleanedPath)
+
+          let extractedText = ""
+          try {
+            const mod: any = await import('pdf-parse').catch(() => null)
+            const pdfFn = mod && (mod.default ?? mod)
+            if (pdfFn && typeof pdfFn === 'function') {
+              const pdfData = await pdfFn(pdfBuffer as any)
+              extractedText = (pdfData && pdfData.text) || ""
+            } else {
+              console.warn('[v0] pdf-parse is not available or not callable in this runtime; skipping extraction')
+            }
+          } catch (e) {
+            console.warn('[v0] PDF extraction attempt failed:', e)
+          }
+
+          if (extractedText && extractedText.trim()) {
+            resumeContent = extractedText
+          } else {
+            resumeContent = `PDF resume at ${cleanedPath} — text extraction not available in this runtime. Please provide a text version of the resume (e.g. .txt) or upgrade Node to >=20.16.0 and install 'pdf-parse' to enable extraction.`
+            console.warn('[v0] Falling back to placeholder resume content for job:', job.id)
+          }
+        } else {
+          // For text-based files (.txt, .md, etc.)
+          resumeContent = readFileSync(cleanedPath, "utf-8")
+        }
+      } catch (fileError) {
+        throw new Error(`Failed to read resume file: ${cleanedPath}. Error: ${fileError}`)
+      }
     }
 
     // Generate email using AI

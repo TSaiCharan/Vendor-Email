@@ -39,12 +39,37 @@ export async function sendEmail({ to, subject, body, attachmentPath, gmail_user,
 
     // Add attachment if provided
     if (attachmentPath) {
-      mailOptions.attachments = [
-        {
-          filename: attachmentPath.split("/").pop() || "resume.pdf",
-          path: attachmentPath,
-        },
-      ]
+      const filename = attachmentPath.split("/").pop() || "resume.pdf"
+      
+      if (attachmentPath.startsWith('http://') || attachmentPath.startsWith('https://')) {
+        // Handle URL-based attachment (from Supabase storage or other cloud storage)
+        console.log("[v0] Attaching resume from URL:", attachmentPath)
+        try {
+          const response = await fetch(attachmentPath)
+          if (!response.ok) {
+            throw new Error(`Failed to download attachment: ${response.status}`)
+          }
+          const buffer = await response.arrayBuffer()
+          
+          mailOptions.attachments = [
+            {
+              filename: filename,
+              content: Buffer.from(buffer),
+            },
+          ]
+        } catch (error) {
+          console.warn("[v0] Failed to attach resume from URL:", error)
+          // Continue without attachment
+        }
+      } else {
+        // Handle local file path
+        mailOptions.attachments = [
+          {
+            filename: filename,
+            path: attachmentPath,
+          },
+        ]
+      }
     }
 
     // Send email

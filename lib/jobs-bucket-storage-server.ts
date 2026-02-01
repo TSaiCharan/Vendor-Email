@@ -1,5 +1,3 @@
-'use client'
-
 import { supabase } from '@/lib/supabase'
 import type { Job } from '@/lib/types'
 import { randomUUID } from 'crypto'

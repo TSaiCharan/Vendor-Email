@@ -97,6 +97,7 @@ export function CreateJobDialog({ onJobCreated }: { onJobCreated?: () => void })
   const [selectedResume, setSelectedResume] = useState<string>("")
   const [userResumes, setUserResumes] = useState<UserResume[]>([])
   const [resumesLoading, setResumesLoading] = useState(false)
+  const [isUploadingResume, setIsUploadingResume] = useState(false)
   // initialize from sessionStorage if set (session-level variables)
   const [aiPrompt, setAiPrompt] = useState<string>(() => {
     try {
@@ -222,6 +223,56 @@ export function CreateJobDialog({ onJobCreated }: { onJobCreated?: () => void })
 
   const router = useRouter()
 
+  // Quick resume upload handler
+  const handleQuickUploadResume = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploadingResume(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/resumes/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to upload resume')
+      }
+
+      // Refresh resumes list
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        const { data: resumes } = await supabase
+          .from('user_resumes')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+
+        if (resumes) {
+          setUserResumes(resumes)
+          if (resumes.length > 0) {
+            setSelectedResume(resumes[0].id)
+          }
+        }
+      }
+
+      setError(null)
+    } catch (error) {
+      console.error('Error uploading resume:', error)
+      setError(error instanceof Error ? error.message : 'Failed to upload resume')
+    } finally {
+      setIsUploadingResume(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -247,13 +298,14 @@ export function CreateJobDialog({ onJobCreated }: { onJobCreated?: () => void })
           resume_path: resumePath,
         }),
       })
-      console.log('submitting new job', response)
 
       const result = await response.json()
 
       if (!result.success) {
         throw new Error(result.error || "Failed to create job")
       }
+
+      console.log("[v0] Job created successfully:", result.job?.id)
 
       // Reset form and close dialog
       setRecruiterEmail("")
@@ -274,21 +326,36 @@ export function CreateJobDialog({ onJobCreated }: { onJobCreated?: () => void })
         } = await supabase.auth.getUser()
 
         if (user) {
-          const { data: apiKeys } = await supabase
+          console.log("[v0] Fetching API keys for user:", user.id)
+          
+          const { data: apiKeys, error: keysError } = await supabase
             .from("user_api_keys")
             .select("*")
             .eq("user_id", user.id)
             .single()
 
-          await fetch("/api/process-jobs", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              openai_api_key: apiKeys?.openai_api_key,
-              gmail_user: apiKeys?.gmail_user,
-              gmail_app_password: apiKeys?.gmail_app_password,
-            }),
-          })
+          if (keysError) {
+            console.warn("[v0] Warning: Could not fetch API keys:", keysError)
+          }
+
+          if (apiKeys) {
+            console.log("[v0] Triggering job processing with credentials")
+            
+            const processingResponse = await fetch("/api/process-jobs", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                openai_api_key: apiKeys?.openai_api_key,
+                gmail_user: apiKeys?.gmail_user,
+                gmail_app_password: apiKeys?.gmail_app_password,
+              }),
+            })
+
+            const processingResult = await processingResponse.json()
+            console.log("[v0] Job processing response:", processingResult)
+          } else {
+            console.warn("[v0] Warning: No API keys found for user. Job will remain queued.")
+          }
         }
       } catch (error) {
         console.error("Error triggering job processor:", error)
@@ -400,30 +467,50 @@ export function CreateJobDialog({ onJobCreated }: { onJobCreated?: () => void })
             {resumesLoading ? (
               <div className="p-2 text-sm text-gray-600">Loading resumes...</div>
             ) : userResumes.length === 0 ? (
-              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-yellow-800">
-                  No resumes found. Please{" "}
-                  <a href="/resume" target="_blank" rel="noopener noreferrer" className="underline font-semibold">
-                    upload a resume
-                  </a>
-                  {" "}first.
-                </p>
+              <div className="space-y-3">
+                <p className="text-sm text-gray-600">No resumes uploaded yet.</p>
+                <label className="block">
+                  <input
+                    type="file"
+                    accept=".pdf,.txt,.doc,.docx"
+                    onChange={handleQuickUploadResume}
+                    disabled={isUploadingResume}
+                    className="hidden"
+                  />
+                  <span className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition">
+                    {isUploadingResume ? 'Uploading...' : '+ Upload Resume'}
+                  </span>
+                </label>
               </div>
             ) : (
-              <select
-                id="resume-select"
-                value={selectedResume}
-                onChange={(e) => setSelectedResume(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              >
-                <option value="">Select a resume...</option>
-                {userResumes.map((resume) => (
-                  <option key={resume.id} value={resume.id}>
-                    {resume.name}
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-2">
+                <select
+                  id="resume-select"
+                  value={selectedResume}
+                  onChange={(e) => setSelectedResume(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">Select a resume...</option>
+                  {userResumes.map((resume) => (
+                    <option key={resume.id} value={resume.id}>
+                      {resume.name}
+                    </option>
+                  ))}
+                </select>
+                <label className="block">
+                  <input
+                    type="file"
+                    accept=".pdf,.txt,.doc,.docx"
+                    onChange={handleQuickUploadResume}
+                    disabled={isUploadingResume}
+                    className="hidden"
+                  />
+                  <span className="inline-flex items-center gap-2 px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition">
+                    {isUploadingResume ? 'Uploading...' : '+ Upload Another'}
+                  </span>
+                </label>
+              </div>
             )}
           </div>
 

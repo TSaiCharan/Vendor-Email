@@ -1,4 +1,4 @@
-import { createJob } from "@/lib/jobs-bucket-storage"
+import { createJob } from "@/lib/jobs-bucket-storage-server"
 
 export async function POST(req: Request) {
   try {

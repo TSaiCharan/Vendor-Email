@@ -137,8 +137,16 @@ export function JobsTable({ selectedDate }: { selectedDate?: string }) {
 
     load()
 
+    // Auto-refresh every 5 seconds if there are queued or processing jobs
+    const interval = setInterval(() => {
+      if (mounted) {
+        load()
+      }
+    }, 5000)
+
     return () => {
       mounted = false
+      clearInterval(interval)
     }
   }, [effectiveDate])
 
