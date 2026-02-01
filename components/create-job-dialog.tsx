@@ -339,9 +339,11 @@ export function CreateJobDialog({ onJobCreated }: { onJobCreated?: () => void })
           }
 
           if (apiKeys) {
-            console.log("[v0] Triggering job processing with credentials")
+            console.log("[v0] Triggering job processing with credentials (non-blocking)")
             
-            const processingResponse = await fetch("/api/process-jobs", {
+            // Fire-and-forget: trigger processing without awaiting to avoid timeout on hosted platforms
+            // The cron job will pick up any remaining queued jobs
+            fetch("/api/process-jobs", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -349,16 +351,15 @@ export function CreateJobDialog({ onJobCreated }: { onJobCreated?: () => void })
                 gmail_user: apiKeys?.gmail_user,
                 gmail_app_password: apiKeys?.gmail_app_password,
               }),
+            }).catch((error) => {
+              console.warn("[v0] Background job processing trigger failed (will retry via cron):", error)
             })
-
-            const processingResult = await processingResponse.json()
-            console.log("[v0] Job processing response:", processingResult)
           } else {
             console.warn("[v0] Warning: No API keys found for user. Job will remain queued.")
           }
         }
       } catch (error) {
-        console.error("Error triggering job processor:", error)
+        console.error("Error in job creation flow:", error)
       }
 
       // Refresh the page to show the new job
