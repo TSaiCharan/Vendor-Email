@@ -6,19 +6,12 @@ import { randomUUID } from 'crypto'
 
 const BUCKET_NAME = 'jobs'
 
-// Helper to get Chicago time (UTC-6 or UTC-5 depending on DST)
-function getChicagoDate(): Date {
-  const now = new Date()
-  const chicagoTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }))
-  return chicagoTime
-}
-
-// Get today's date in YYYY-MM-DD format (Chicago time)
+// Get today's date in YYYY-MM-DD format (UTC)
 export function getTodayDateString(): string {
-  const today = getChicagoDate()
-  const year = today.getFullYear()
-  const month = String(today.getMonth() + 1).padStart(2, '0')
-  const day = String(today.getDate()).padStart(2, '0')
+  const today = new Date()
+  const year = today.getUTCFullYear()
+  const month = String(today.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(today.getUTCDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
 

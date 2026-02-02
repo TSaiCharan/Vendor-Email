@@ -342,17 +342,18 @@ export function CreateJobDialog({ onJobCreated }: { onJobCreated?: () => void })
             console.log("[v0] Triggering job processing with credentials (non-blocking)")
             
             // Fire-and-forget: trigger processing without awaiting to avoid timeout on hosted platforms
-            // The cron job will pick up any remaining queued jobs
-            fetch("/api/process-jobs", {
+            fetch("/api/webhooks/job-created", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                openai_api_key: apiKeys?.openai_api_key,
-                gmail_user: apiKeys?.gmail_user,
-                gmail_app_password: apiKeys?.gmail_app_password,
+                record: {
+                  user_id: user.id,
+                  job_id: result.jobId
+                },
+                type: "INSERT"
               }),
             }).catch((error) => {
-              console.warn("[v0] Background job processing trigger failed (will retry via cron):", error)
+              console.warn("[v0] Background job processing trigger failed (will be retried by user manually):", error)
             })
           } else {
             console.warn("[v0] Warning: No API keys found for user. Job will remain queued.")

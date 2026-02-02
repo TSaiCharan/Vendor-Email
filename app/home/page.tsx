@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { CreateJobDialog } from '@/components/create-job-dialog'
 import { JobsTable } from '@/components/jobs-table'
 import { UserDropdown } from '@/components/user-dropdown'
+import { ManualJobProcessor } from '@/components/manual-job-processor'
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null)
@@ -55,7 +56,10 @@ export default function Dashboard() {
           <div className="p-8">
             <div className="mb-8 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-slate-100">Create New Application</h2>
-              <CreateJobDialog onJobCreated={handleJobCreated} />
+              <div className="flex gap-3">
+                <ManualJobProcessor />
+                <CreateJobDialog onJobCreated={handleJobCreated} />
+              </div>
             </div>
 
             {/* Job list */}
